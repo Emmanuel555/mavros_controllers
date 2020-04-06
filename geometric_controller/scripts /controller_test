@@ -1,0 +1,461 @@
+#!/usr/bin/env python
+# vim:set ts=4 sw=4 et:
+#
+# Copyright 2015 UAVenture AG.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+# for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+# Updated: Tarek Taha : tarek.taha@kustar.ac.ae, Vladimir Ermakov
+#    - Changed topic names after re-factoring : https://github.com/mavlink/mavros/issues/233
+#    - Use mavros.setpoint module for topics
+
+import rospy
+import thread
+import threading
+import time
+import mavros
+import math
+
+import numpy as np
+
+from math import *
+from mavros.utils import *
+from mavros import setpoint as SP
+from controller_msgs.msg import FlatTarget, TrajComm, TrajShapes
+from std_msgs.msg import Header #type 
+from std_msgs.msg import Float64, Float32, Int32 #type from msg generation
+from geometry_msgs.msg import PoseStamped, Quaternion, QuaternionStamped, TwistStamped, PoseWithCovariance, TwistWithCovariance #geometry
+#from tf.transformations import quaternion_from_euler #transformation
+from mavros_msgs.srv import CommandLong #service_class
+from mavros_msgs.msg import PositionTarget,ActuatorControl
+from sensor_msgs.msg import NavSatFix,Range,LaserScan #type
+from nav_msgs.msg import Odometry
+#from teraranger_array.msg import RangeArray
+
+
+class controller_test:
+    """
+    This class sends position targets to FCU's position controller
+    """
+    def __init__(self):
+        self.z = 1.8   
+        self.armed = False  
+        #self.collective = RangeArray()
+        self.rate = rospy.Rate(50) # 10hz is the original 
+        self.first_pos = Float64()
+        self.second_pos = Float64()
+        self.first_pos_x = Float64()
+        self.first_pos_y = Float64()
+        self.second_pos_x = Float64()
+        self.second_pos_y = Float64()
+        self.second_pos = 0.0
+        self.timeout = 180
+        self.local_position = PoseStamped()
+        self.flat_topic= FlatTarget()
+        self.flat_ref= FlatTarget()
+        self.actuator_control_message = ActuatorControl() 
+        self.final_destination = 0.0
+        self.count = 0.0
+        self.seq = 0.0
+        self.seq_2 = 0.0
+        self.seq_ref = Float64()
+        self.seq_ref_2 = Float64()
+        self.t = Float64()
+        self.init_time = Float64()
+        self.first_time = Float64()
+        self.second_time = Float64()
+        self.traj_type = Int32()
+        self.traj_pose = QuaternionStamped()
+        self.traj_vel = QuaternionStamped()
+        self.error = Float64()
+        self.HDOP = 0.5
+        self.X = Float64()
+        self.Y = Float64()
+        self.act_vel = TwistStamped()
+        self.error_1 = 0.0
+        self.error_2 = 0.0
+        self.error_3 = 0.0
+        self.error_4 = 0.0
+        self.error_5 = 0.0
+        self.error_6 = 0.0
+        self.error_7 = 0.0
+        self.error_8 = 0.0
+        self.error_9 = 0.0
+        self.error_10 = 0.0
+        self.speed = Float64()
+        self.angular_vel = Float64()
+
+
+        rospy.wait_for_service('mavros/cmd/arming', 30) # wait for arming, queue for 30s
+
+        #rospy.Subscriber("subscribed topic",topic type,callback invoked with the message as the first arg)  
+
+        #rospy.Subscriber("hub_1/ranges_raw", RangeArray, self.hub_callback)
+
+
+        rospy.Subscriber("/trajectory_type", Int32, self.traj_type_callback)
+        rospy.Subscriber("/uav/trajectory", QuaternionStamped, self.traj_pose_callback)
+        rospy.Subscriber("/uav/trajectory_velocity", QuaternionStamped, self.traj_vel_callback)
+        rospy.Subscriber('mavros/local_position/velocity_body', TwistStamped, self.act_vel_callback)
+        rospy.Subscriber("/uav/angular_vel", Float64, self.angular_vel_callback)
+        rospy.Subscriber("/uav/speed", Float64, self.speed_callback)
+
+
+        rospy.Subscriber("mavros/local_position/pose", PoseStamped, self.position_callback)
+        rospy.Subscriber("/reference/flatsetpoint", FlatTarget, self.flat_callback)
+        self.pub_traj = rospy.Publisher('borealis/reference', TrajComm, queue_size=10)
+        self.pub_shapes = rospy.Publisher('borealis/reference_shapes', TrajShapes, queue_size=10)
+        self.pub_pos = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=10)
+        self.pub_flat = rospy.Publisher("/reference/flatsetpoint", FlatTarget, queue_size=10)
+        self.pub_spt = rospy.Publisher('mavros/setpoint_position/local', PoseStamped, queue_size=10)
+
+
+        rospy.wait_for_service('mavros/cmd/command', 30)
+        self._srv_cmd_long = rospy.ServiceProxy('mavros/cmd/command', CommandLong, persistent=True)
+      
+        while not rospy.is_shutdown(): #subsequent functions below are automatically run using this while loop (inert functions)  
+
+            self.flat()
+            self.X = self.local_position.pose.position.x 
+            self.Y = self.local_position.pose.position.y
+
+            if self.traj_type.data == 10: #straight line
+                
+                self.final_destination = 5.0
+                if self.seq == 0.02:
+                    self.init_time = rospy.get_time()
+                self.seq = self.seq + 0.02
+
+                # print self.init_time, self.seq
+
+                # only tracks the continuous msg being sent to it, if u send it one time, it wud just register that value so this is not preferred if u wanna measure realtime without keying in pose
+
+                if self.X > self.final_destination and (self.X < self.final_destination + self.HDOP) and self.seq_2 == 1.0:
+                     self.first_pos = self.local_position.pose.position.x
+                     self.first_time = rospy.get_time() - self.init_time
+                     self.seq_2 = self.seq_2 + 1.0
+                     self.seq_ref = self.seq
+
+                #print self.first_pos, self.first_time # self.init_time, self.local_position.pose.position.x
+
+                # if self.local_position.pose.position.x > 10.0 and self.local_position.pose.position.x < 10.02:
+                #      self.second_pos = self.local_position.pose.position.x
+                #      self.second_time = rospy.get_time() - self.init_time
+
+                #print self.traj_pose.quaternion.x, self.traj_pose.quaternion.y, self.traj_pose.quaternion.z  
+                print self.first_pos, self.first_time, self.seq_ref, self.local_position.pose.position.x  
+
+
+            if self.traj_type.data == 3: #waypoints
+
+                if self.seq == 0.02:
+                    self.init_time = rospy.get_time()
+                self.seq = self.seq + 0.02
+
+                if (self.X and self.Y) > 1.0 and self.seq_2 == 1.0:
+                    self.error_1 = ((abs(self.seq - (math.sqrt((2*math.pow(1,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1    
+                if (self.X and self.Y) > 2.0 and self.seq_2 == 2.0:
+                    self.error_2 = ((abs(self.seq - (math.sqrt((2*math.pow(2,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 3.0 and self.seq_2 == 3.0:
+                    self.error_3 = ((abs(self.seq - (math.sqrt((2*math.pow(3,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 4.0 and self.seq_2 == 4.0:
+                    self.error_4 = ((abs(self.seq - (math.sqrt((2*math.pow(4,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 5.0 and self.seq_2 == 5.0:
+                    self.error_5 = ((abs(self.seq - (math.sqrt((2*math.pow(5,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 6.0 and self.seq_2 == 6.0:
+                    self.error_6 = ((abs(self.seq - (math.sqrt((2*math.pow(6,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 7.0 and self.seq_2 == 7.0:
+                    self.error_7 = ((abs(self.seq - (math.sqrt((2*math.pow(7,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 8.0 and self.seq_2 == 8.0:
+                    self.error_8 = ((abs(self.seq - (math.sqrt((2*math.pow(8,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 9.0 and self.seq_2 == 9.0:
+                    self.error_9 = ((abs(self.seq - (math.sqrt((2*math.pow(9,2))))/self.traj_vel.quaternion.x)))
+                    self.seq_2 = self.seq_2 + 1
+                if (self.X and self.Y) > 10.0 and self.seq_2 == 10.0:
+                    self.error_10 = ((abs(self.seq - (math.sqrt((2*math.pow(10,2))))/self.traj_vel.quaternion.x)))      
+                    self.seq_2 = self.seq_2 + 1
+
+                self.system_test()
+
+                #while self.local_position.pose.position.x < 5.5 and self.local_position.pose.position.y < 5.5: # continue tmr
+    
+                # if (self.X and self.Y) > self.final_destination and (self.X and self.Y) < self.final_destination + self.HDOP and self.seq_2 == 2.0:
+                #      self.first_pos_x = self.X
+                #      self.first_pos_y = self.Y
+                #      # self.first_time = rospy.get_time() - self.init_time
+                #      self.seq_2 = self.seq_2 + 1.0
+                #      self.final_destination = self.final_destination + 1.0
+                #      self.seq_ref = self.seq 
+                #      self.error = self.seq_ref - math.sqrt((2*math.pow(self.final_destination,2)))
+
+                # if (self.X and self.Y) > self.final_destination and (self.X and self.Y) < self.final_destination + self.HDOP and self.seq_2 == 3.0:
+                #      self.second_pos_x = self.X
+                #      self.second_pos_y = self.Y
+                #      # self.second_time = rospy.get_time() - self.init_time
+                #      self.seq_2 = self.seq_2 + 1.0
+                #      self.final_destination = self.final_destination + 1.0
+                #      self.seq_ref_2 = self.seq
+                #      self.error_2 = self.seq_ref_2 - math.sqrt((2*math.pow(self.final_destination,2)))
+
+
+                #print self.first_pos_x, self.first_pos_y, "@", self.seq_ref, "Error is ", abs(self.error), "||||", self.second_pos_x, self.second_pos_y, "@", self.seq_ref_2, "Error is ", abs(self.error_2), "||||", self.local_position.pose.position.x, self.local_position.pose.position.y  
+                #print "2m (X & Y) @ 1 m/s ", self.seq_ref, "Error in time is ", abs(self.error), "||||", "3m (X & Y) @ 1 m/s ", self.seq_ref_2, "Error in time is ", abs(self.error_2), "||||", self.X, self.Y  
+                print "This shit is running, running, running......"
+
+
+            if self.traj_type.data == 0: #none
+
+                self.seq = 0.0
+                self.seq_ref = 0.0
+                self.seq_ref_2 = 0.0
+                self.init_time = 0.0
+                self.first_time = 0.0
+                self.second_time = 0.0
+                self.final_destination = 1.0
+                self.seq_2 = self.final_destination
+                self.error = 0.0
+                self.error_2 = 0.0
+                self.target_vel = 1.0
+                self.error_1 = 0.0
+                self.error_2 = 0.0
+                self.error_3 = 0.0
+                self.error_4 = 0.0
+                self.error_5 = 0.0
+                self.error_6 = 0.0
+                self.error_7 = 0.0
+                self.error_8 = 0.0
+                self.error_9 = 0.0
+                self.error_10 = 0.0
+
+                print "Resetting..."
+
+            if self.traj_type.data == 5: #circle
+
+                self.system_test_circle_8()
+                print self.traj_pose.quaternion.x, self.traj_pose.quaternion.y
+
+            if self.traj_type.data == 7: #aggressive 8
+
+                self.system_test_circle_8()
+                print self.traj_pose.quaternion.x, self.traj_pose.quaternion.y
+      
+                
+            self.rate.sleep() # The loop calls rate.sleep(), which sleeps just long enough to maintain the desired rate through the loop.
+
+    def flat_callback(self, data): # callback invoked with the message as the first arg
+        self.flat_ref = data 
+
+    def speed_callback(self, data): # callback invoked with the message as the first arg
+        self.speed = data 
+
+    def angular_vel_callback(self, data): # callback invoked with the message as the first arg
+        self.angular_vel = data 
+
+    def position_callback(self, data): # callback invoked with the message as the first arg
+        self.local_position = data 
+
+    def act_vel_callback(self,data):
+        self.act_vel = data
+
+    def traj_type_callback(self,data):
+        self.traj_type = data
+
+    def traj_pose_callback(self,data):
+        self.traj_pose = data
+
+    def traj_vel_callback(self,data):
+        self.traj_vel = data
+
+    def flat(self):
+        self.flat_topic.header.stamp.secs = rospy.get_time()
+        self.flat_topic.header.frame_id = "map"
+        self.flat_topic.type_mask = 2
+        self.flat_topic.position.x = self.traj_pose.quaternion.x
+        self.flat_topic.position.y = self.traj_pose.quaternion.y
+        self.flat_topic.position.z = self.traj_pose.quaternion.z  
+        self.flat_topic.velocity.x = self.traj_vel.quaternion.x # i m just changing this fking value for now cos i dun have time to alter the gains jus as yet but shud be 1 m/s
+        self.flat_topic.velocity.y = self.traj_vel.quaternion.y
+        self.flat_topic.velocity.z = self.traj_vel.quaternion.z
+        self.flat_topic.acceleration.x = 0.0
+        self.flat_topic.acceleration.y = 0.0
+        self.flat_topic.acceleration.z = 0.0
+        self.pub_flat.publish(self.flat_topic)
+
+
+    def system_test(self):
+        odom = TrajComm()
+        odom.header = Header()
+        odom.header.stamp.secs = self.seq
+        odom.header.stamp.nsecs = self.seq
+        odom.header.frame_id = "Borealis_Reference"
+        odom.Total_Waypoints = 0.0
+
+
+        odom.Traj_Position.x = self.traj_pose.quaternion.x
+        odom.Traj_Position.y = self.traj_pose.quaternion.y
+        odom.Traj_Position.z = self.traj_pose.quaternion.z
+
+        odom.Actual_Position.x = self.local_position.pose.position.x 
+        odom.Actual_Position.y = self.local_position.pose.position.y 
+        odom.Actual_Position.z = self.local_position.pose.position.z
+
+        odom.Traj_Velocity.x = self.traj_vel.quaternion.x
+        odom.Traj_Velocity.y = self.traj_vel.quaternion.y
+        odom.Traj_Velocity.z = self.traj_vel.quaternion.z
+
+        odom.Actual_Velocity.x = self.act_vel.twist.linear.x 
+        odom.Actual_Velocity.y = self.act_vel.twist.linear.y 
+        odom.Actual_Velocity.z = self.act_vel.twist.linear.z 
+
+        odom.Error_Position.x = abs(self.local_position.pose.position.x - self.traj_pose.quaternion.x)
+        odom.Error_Position.y = abs(self.local_position.pose.position.y - self.traj_pose.quaternion.y)
+        odom.Error_Position.z = abs(self.local_position.pose.position.z - self.traj_pose.quaternion.z)
+
+        odom.Error_Velocity.x = abs(self.act_vel.twist.linear.x - self.traj_vel.quaternion.x)
+        odom.Error_Velocity.y = abs(self.act_vel.twist.linear.y - self.traj_vel.quaternion.y)
+        odom.Error_Velocity.z = abs(self.act_vel.twist.linear.z - self.traj_vel.quaternion.z)
+
+        
+        odom.Time_Error_Waypoint_1 = self.error_1
+        odom.Time_Error_Waypoint_2 = self.error_2
+        odom.Time_Error_Waypoint_3 = self.error_3
+        odom.Time_Error_Waypoint_4 = self.error_4
+        odom.Time_Error_Waypoint_5 = self.error_5
+        odom.Time_Error_Waypoint_6 = self.error_6
+        odom.Time_Error_Waypoint_7 = self.error_7
+        odom.Time_Error_Waypoint_8 = self.error_8
+        odom.Time_Error_Waypoint_9 = self.error_9
+        odom.Time_Error_Waypoint_10 = self.error_10
+
+        self.pub_traj.publish(odom)
+
+
+    def system_test_circle_8(self):
+        odom = TrajShapes()
+        odom.header = Header()
+        odom.header.stamp.secs = self.seq
+        odom.header.stamp.nsecs = self.seq
+        odom.header.frame_id = "Borealis_Reference"
+        odom.Shape = "Figure Of 8"
+        odom.Radius = 3.0
+        odom.Speed = self.speed.data
+        odom.Angular_Velocity = self.angular_vel.data
+
+
+
+        odom.Traj_Position.x = self.traj_pose.quaternion.x
+        odom.Traj_Position.y = self.traj_pose.quaternion.y
+        odom.Traj_Position.z = self.traj_pose.quaternion.z
+
+        odom.Actual_Position.x = self.local_position.pose.position.x 
+        odom.Actual_Position.y = self.local_position.pose.position.y 
+        odom.Actual_Position.z = self.local_position.pose.position.z
+
+        odom.Traj_Velocity.x = self.traj_vel.quaternion.x
+        odom.Traj_Velocity.y = self.traj_vel.quaternion.y
+        odom.Traj_Velocity.z = self.traj_vel.quaternion.z
+
+        odom.Actual_Velocity.x = self.act_vel.twist.linear.x 
+        odom.Actual_Velocity.y = self.act_vel.twist.linear.y 
+        odom.Actual_Velocity.z = self.act_vel.twist.linear.z 
+
+        odom.Error_Position.x = abs(self.local_position.pose.position.x - self.traj_pose.quaternion.x)
+        odom.Error_Position.y = abs(self.local_position.pose.position.y - self.traj_pose.quaternion.y)
+        odom.Error_Position.z = abs(self.local_position.pose.position.z - self.traj_pose.quaternion.z)
+
+        odom.Error_Velocity.x = abs(self.act_vel.twist.linear.x - self.traj_vel.quaternion.x)
+        odom.Error_Velocity.y = abs(self.act_vel.twist.linear.y - self.traj_vel.quaternion.y)
+        odom.Error_Velocity.z = abs(self.act_vel.twist.linear.z - self.traj_vel.quaternion.z)
+
+        self.pub_shapes.publish(odom)
+
+
+    def avoid(self): 
+        # Initialise necessary headers
+        pos = PoseStamped()
+        pos.header = Header() # initialising a new header for a new PoseStamped()
+        pos.header.frame_id = "avoid"
+
+        # Establish desired setpoints
+        pos.pose.position.x = 0.0 # North
+        pos.pose.position.y = 0.0
+        pos.pose.position.z = self.z 
+
+        # Establish desired orientation at setpoint
+        roll_degrees = 0.0 
+        roll = radians(roll_degrees)
+        pitch_degrees = 0.0 
+        pitch = radians(pitch_degrees)
+        yaw_degrees = 0.0  
+        yaw = radians(yaw_degrees)
+
+        # Execute desired orientation
+        # quaternion = quaternion_from_euler(roll, pitch, yaw) #roll,pitch,yaw
+        # pos.pose.orientation = Quaternion(*quaternion)
+
+        qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+        qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+        qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+        qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+
+        quaternion = [qx,qy,qz,qw]  # drone only takes in quarternion values, therefore have to do euler to quarternion conversion
+        pos.pose.orientation = Quaternion(*quaternion)
+        
+        pos.header.stamp = rospy.Time.now() # Update timestamp for each published SP
+
+        # Publishing to rostopic   
+        self.pub_spt.publish(pos) # updated pose from pos.pose.orientation
+
+
+    def deviance(self):
+        # either u do the below or u need to use bitmasking for uint16, jus basically add the uint16 numbers found in mavros documentation
+        pos = PositionTarget(coordinate_frame = PositionTarget.FRAME_LOCAL_NED, # (originally) Local coordinate frame, Z-up (x: north, y: east, z: down), somehow it transformed to ENU (x: east, y: north, z: up)
+                             type_mask=
+                             # PositionTarget.IGNORE_PX + PositionTarget.IGNORE_PY + PositionTarget.IGNORE_PZ +
+                             PositionTarget.IGNORE_VX + PositionTarget.IGNORE_VY + PositionTarget.IGNORE_VZ +
+                             PositionTarget.IGNORE_AFX + PositionTarget.IGNORE_AFY + PositionTarget.IGNORE_AFZ +
+                             PositionTarget.IGNORE_YAW_RATE 
+                             # PositionTarget.IGNORE_YAW
+                             )
+
+        pos.header.frame_id = "deviance" 
+
+        # Establish desired setpoints
+        pos.position.x = self.local_position.pose.position.x 
+        pos.position.y = self.local_position.pose.position.y 
+        pos.position.z = self.local_position.pose.position.z 
+            
+        pos.yaw = radians(180.0)
+
+        pos.header.stamp = rospy.Time.now()
+        self.pub_pos.publish(pos) 
+
+    
+
+if __name__ == '__main__':
+    rospy.init_node('controller_test', anonymous=True)
+
+    node = controller_test()
+
+    rospy.spin()  # spin() simply keeps python from exiting until this node is stopped
+     
+

@@ -1,0 +1,27 @@
+# System topic for DSO
+#
+
+std_msgs/Header header
+string child_frame_id
+
+geometry_msgs/Vector3 Traj_Position
+geometry_msgs/Vector3 Actual_Position
+
+geometry_msgs/Vector3 Traj_Velocity
+geometry_msgs/Vector3 Actual_Velocity
+
+geometry_msgs/Vector3 Error_Position
+geometry_msgs/Vector3 Error_Velocity
+
+float64 Total_Waypoints
+
+float64 Time_Error_Waypoint_1
+float64 Time_Error_Waypoint_2
+float64 Time_Error_Waypoint_3
+float64 Time_Error_Waypoint_4
+float64 Time_Error_Waypoint_5
+float64 Time_Error_Waypoint_6
+float64 Time_Error_Waypoint_7
+float64 Time_Error_Waypoint_8
+float64 Time_Error_Waypoint_9
+float64 Time_Error_Waypoint_10
