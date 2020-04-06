@@ -10,6 +10,8 @@
   <arg name="log_output" default="screen" />
   <arg name="fcu_protocol" default="v2.0" />
   <arg name="respawn_mavros" default="false" />
+
+  <param name="use_sim_time" value="true" />	
   
   <node pkg="geometric_controller" type="geometric_controller_node" name="geometric_controller" output="screen">
   		<param name="mav_name" type="string" value="$(arg mav_name)" />
@@ -21,14 +23,20 @@
           <param name="Kp_x" value="8.0" />
           <param name="Kp_y" value="8.0" />
           <param name="Kp_z" value="10.0" />
+	  <param name="Kv_x" value="1.5" />
+          <param name="Kv_y" value="1.5" />
+          <param name="Kv_z" value="3.3" />
+	  <param name="yaw_heading" value="0.0" />	
   </node>
 
   <node pkg="trajectory_publisher" type="trajectory_publisher" name="trajectory_publisher" output="screen">
-        <param name="trajectory_type" value="1" />
+        <param name="trajectory_type" value="1" /> <!-- linear graph is 0, circle is 1 -->
         <param name="shape_omega" value="1.2" />
         <param name="initpos_z" value="2.0" />
         <param name="reference_type" value="2" />
   </node>
+
+  <node name="trajectory" pkg="controllers" type="trajectory" output="screen" args=""/> <!-- newly added from andriy's publisher -->
 
   <!-- Launch rqt_reconfigure -->
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" output="screen" name="rqt_reconfigure" />

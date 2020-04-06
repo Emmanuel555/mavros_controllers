@@ -12,8 +12,8 @@ trajectoryPublisher::trajectoryPublisher(const ros::NodeHandle& nh, const ros::N
   motion_selector_(0) {
 
   trajectoryPub_ = nh_.advertise<nav_msgs::Path>("/trajectory_publisher/trajectory", 1);
-  referencePub_ = nh_.advertise<geometry_msgs::TwistStamped>("reference/setpoint", 1);
-  flatreferencePub_ = nh_.advertise<controller_msgs::FlatTarget>("reference/flatsetpoint", 1);
+  referencePub_ = nh_.advertise<geometry_msgs::TwistStamped>("reference/setpoint", 1); /////////////////
+  flatreferencePub_ = nh_.advertise<controller_msgs::FlatTarget>("reference/flatsetpoint", 1);////////////////
   rawreferencePub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
   motionselectorSub_ = nh_.subscribe("/trajectory_publisher/motionselector", 1, &trajectoryPublisher::motionselectorCallback, this,ros::TransportHints().tcpNoDelay());
   mavposeSub_ = nh_.subscribe("/mavros/local_position/pose", 1, &trajectoryPublisher::mavposeCallback, this,ros::TransportHints().tcpNoDelay());
@@ -130,7 +130,7 @@ void trajectoryPublisher::pubrefState(){
   msg.twist.linear.x = v_targ(0);
   msg.twist.linear.y = v_targ(1);
   msg.twist.linear.z = v_targ(2);
-  referencePub_.publish(msg);
+  referencePub_.publish(msg); // sent to reference/setpoint 
 }
 
 void trajectoryPublisher::pubflatrefState(){
@@ -148,7 +148,7 @@ void trajectoryPublisher::pubflatrefState(){
   msg.acceleration.x = a_targ(0);
   msg.acceleration.y = a_targ(1);
   msg.acceleration.z = a_targ(2);
-  flatreferencePub_.publish(msg);
+  //flatreferencePub_.publish(msg); //flat_setpoint sent to the controller to /reference/flatsetpoint
 }
 
 void trajectoryPublisher::pubrefSetpointRaw(){
@@ -162,7 +162,7 @@ void trajectoryPublisher::pubrefSetpointRaw(){
   msg.velocity.x = v_targ(0);
   msg.velocity.y = v_targ(1);
   msg.velocity.z = v_targ(2);
-  rawreferencePub_.publish(msg);
+  rawreferencePub_.publish(msg); //ref pose to /mavros/setpoint_raw/local
 }
 
 
