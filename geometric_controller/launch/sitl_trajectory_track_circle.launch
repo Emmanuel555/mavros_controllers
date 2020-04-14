@@ -6,7 +6,7 @@
   <arg name="tgt_component" default="1" />
   <arg name="command_input" default="2" />
   <arg name="gazebo_simulation" default="true" />
-  <arg name="visualization" default="true"/>
+  <arg name="visualization" default="false"/> <!-- originally was true -->
   <arg name="log_output" default="screen" />
   <arg name="fcu_protocol" default="v2.0" />
   <arg name="respawn_mavros" default="false" />
@@ -40,6 +40,8 @@
 
   <!-- Launch rqt_reconfigure -->
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" output="screen" name="rqt_reconfigure" />
+
+  <node pkg="rqt_multiplot" type="rqt_multiplot" output="screen" name="rqt_multiplot" />
 
   <include file="$(find mavros)/launch/node.launch">
       <arg name="pluginlists_yaml" value="$(find mavros)/launch/px4_pluginlists.yaml" />

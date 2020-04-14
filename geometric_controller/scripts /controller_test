@@ -119,6 +119,7 @@ class controller_test:
         self.pub_pos = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=10)
         self.pub_flat = rospy.Publisher("/reference/flatsetpoint", FlatTarget, queue_size=10)
         self.pub_spt = rospy.Publisher('mavros/setpoint_position/local', PoseStamped, queue_size=10)
+        self.total_error = rospy.Publisher('Error_Pos_Vel', TrajComm, queue_size=10)
 
 
         rospy.wait_for_service('mavros/cmd/command', 30)
@@ -157,7 +158,7 @@ class controller_test:
                 print self.first_pos, self.first_time, self.seq_ref, self.local_position.pose.position.x  
 
 
-            if self.traj_type.data == 3: #waypoints
+            if self.traj_type.data == 3: # waypoints
 
                 if self.seq == 0.02:
                     self.init_time = rospy.get_time()
@@ -246,7 +247,7 @@ class controller_test:
                 self.error_9 = 0.0
                 self.error_10 = 0.0
 
-                print "Resetting..."
+                print "Resetting...", self.seq
 
             if self.traj_type.data == 5: #circle
 
@@ -258,7 +259,8 @@ class controller_test:
                 self.system_test_circle_8()
                 print self.traj_pose.quaternion.x, self.traj_pose.quaternion.y
       
-                
+
+            self.current_error()    
             self.rate.sleep() # The loop calls rate.sleep(), which sleeps just long enough to maintain the desired rate through the loop.
 
     def flat_callback(self, data): # callback invoked with the message as the first arg
@@ -299,6 +301,40 @@ class controller_test:
         self.flat_topic.acceleration.y = 0.0
         self.flat_topic.acceleration.z = 0.0
         self.pub_flat.publish(self.flat_topic)
+
+
+    def current_error(self):
+        odom = TrajComm()
+        odom.header = Header()
+        odom.header.stamp.secs = rospy.get_time()
+        odom.header.frame_id = "Pos & Vel Error"
+
+
+        odom.Traj_Position.x = self.traj_pose.quaternion.x
+        odom.Traj_Position.y = self.traj_pose.quaternion.y
+        odom.Traj_Position.z = self.traj_pose.quaternion.z
+
+        odom.Actual_Position.x = self.local_position.pose.position.x 
+        odom.Actual_Position.y = self.local_position.pose.position.y 
+        odom.Actual_Position.z = self.local_position.pose.position.z
+
+        odom.Traj_Velocity.x = self.traj_vel.quaternion.x
+        odom.Traj_Velocity.y = self.traj_vel.quaternion.y
+        odom.Traj_Velocity.z = self.traj_vel.quaternion.z
+
+        odom.Actual_Velocity.x = self.act_vel.twist.linear.x 
+        odom.Actual_Velocity.y = self.act_vel.twist.linear.y 
+        odom.Actual_Velocity.z = self.act_vel.twist.linear.z 
+
+        odom.Error_Position.x = abs(self.local_position.pose.position.x - self.traj_pose.quaternion.x)
+        odom.Error_Position.y = abs(self.local_position.pose.position.y - self.traj_pose.quaternion.y)
+        odom.Error_Position.z = abs(self.local_position.pose.position.z - self.traj_pose.quaternion.z)
+
+        odom.Error_Velocity.x = abs(self.act_vel.twist.linear.x - self.traj_vel.quaternion.x)
+        odom.Error_Velocity.y = abs(self.act_vel.twist.linear.y - self.traj_vel.quaternion.y)
+        odom.Error_Velocity.z = abs(self.act_vel.twist.linear.z - self.traj_vel.quaternion.z)
+
+        self.total_error.publish(odom)
 
 
     def system_test(self):
