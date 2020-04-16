@@ -13,6 +13,8 @@ geometry_msgs/Vector3 Actual_Velocity
 geometry_msgs/Vector3 Error_Position
 geometry_msgs/Vector3 Error_Velocity
 
+float32 Yaw
+
 float64 Total_Waypoints
 
 float64 Time_Error_Waypoint_1

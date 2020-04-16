@@ -17,3 +17,5 @@ string Shape
 float64 Radius 
 float64 Speed 
 float64 Angular_Velocity
+float32 Yaw
+
