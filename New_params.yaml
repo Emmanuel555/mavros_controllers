@@ -1,0 +1,29 @@
+!!python/object/new:dynamic_reconfigure.encoding.Config
+dictitems:
+  Kp_x: 8.0
+  Kp_y: 8.0
+  Kp_z: 10.0
+  Kv_x: 1.05
+  Kv_y: 1.5
+  Kv_z: 3.3
+  groups: !!python/object/new:dynamic_reconfigure.encoding.Config
+    dictitems:
+      Kp_x: 8.0
+      Kp_y: 8.0
+      Kp_z: 10.0
+      Kv_x: 1.05
+      Kv_y: 1.5
+      Kv_z: 3.3
+      groups: !!python/object/new:dynamic_reconfigure.encoding.Config
+        state: []
+      id: 0
+      max_acc: 8.0
+      name: Default
+      parameters: !!python/object/new:dynamic_reconfigure.encoding.Config
+        state: []
+      parent: 0
+      state: true
+      type: ''
+    state: []
+  max_acc: 8.0
+state: []
