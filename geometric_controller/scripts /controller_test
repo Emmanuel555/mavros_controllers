@@ -135,7 +135,7 @@ class controller_test:
             self.X = self.local_position.pose.position.x 
             self.Y = self.local_position.pose.position.y
 
-            if self.traj_type.data == 10: #straight line
+            if self.traj_type.data == 10: # straight line
                 
                 self.final_destination = 5.0
                 if self.seq == 0.02:
@@ -227,7 +227,7 @@ class controller_test:
                 print "This shit is running, running, running......"
 
 
-            if self.traj_type.data == 0: #none
+            if self.traj_type.data == 0: # none
 
                 self.seq = 0.0
                 self.seq_ref = 0.0
@@ -253,13 +253,13 @@ class controller_test:
 
                 print "Resetting...", self.seq
 
-            if self.traj_type.data == 5: #circle
+            if self.traj_type.data == 5: # circle
                 self.seq = self.seq + 0.02
                 self.shapes.data = "Circle"
                 self.system_test_circle_8()    
                 print self.traj_pose.pose.position.x, self.traj_pose.pose.position.y
 
-            if self.traj_type.data == 7: #aggressive 8
+            if self.traj_type.data == 7: # aggressive 8
                 self.seq = self.seq + 0.02
                 self.shapes.data = "Figure 8"
                 self.system_test_circle_8()

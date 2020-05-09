@@ -57,6 +57,7 @@ class geometricCtrl
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nh_private_;
+    ros::Subscriber slamSub_; ///// sub
     ros::Subscriber referenceSub_;
     ros::Subscriber flatreferenceSub_;
     ros::Subscriber multiDOFJointSub_;
@@ -64,6 +65,7 @@ class geometricCtrl
     ros::Subscriber mavposeSub_, gzmavposeSub_;
     ros::Subscriber mavtwistSub_;
     ros::Subscriber yawreferenceSub_;
+    ros::Publisher vision_pub_; ////// pub
     ros::Publisher rotorVelPub_, angularVelPub_, target_pose_pub_;
     ros::Publisher referencePosePub_;
     ros::Publisher posehistoryPub_;
@@ -87,6 +89,7 @@ class geometricCtrl
     double norm_thrust_const_, norm_thrust_offset_;
     double max_fb_acc_;
     double dx_, dy_, dz_;
+    double slam_x, slam_y;
 
     mavros_msgs::State current_state_;
     mavros_msgs::SetMode offb_set_mode_;
@@ -94,7 +97,7 @@ class geometricCtrl
     std::vector<geometry_msgs::PoseStamped> posehistory_vector_;
     MAV_STATE companion_state_ = MAV_STATE::MAV_STATE_ACTIVE;
 
-    Eigen::Vector3d targetPos_, targetVel_, targetAcc_, targetJerk_, targetSnap_, targetPos_prev_, targetVel_prev_;
+    Eigen::Vector3d targetPos_, targetVel_, targetAcc_, targetJerk_, targetSnap_, targetPos_prev_, targetVel_prev_, slam_pose;
     Eigen::Vector3d mavPos_, mavVel_, mavRate_;
     double mavYaw_;
     Eigen::Vector3d g_;
@@ -108,11 +111,13 @@ class geometricCtrl
 
     void pubMotorCommands();
     void pubRateCommands(const Eigen::Vector4d &cmd);
+    void visionPose(); // pub function
     void pubReferencePose(const Eigen::Vector3d &target_position, const Eigen::Vector4d &target_attitude);
     void pubPoseHistory();
     void pubSystemStatus();
     void appendPoseHistory();
     void odomCallback(const nav_msgs::OdometryConstPtr& odomMsg);
+    void slamCallback(const geometry_msgs::PoseStamped& msg); /////
     void targetCallback(const geometry_msgs::TwistStamped& msg);
     void flattargetCallback(const controller_msgs::FlatTarget& msg);
     void yawtargetCallback(const std_msgs::Float32& msg);

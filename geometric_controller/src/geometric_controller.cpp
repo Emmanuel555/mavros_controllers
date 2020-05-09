@@ -14,6 +14,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
   feedthrough_enable_(false),
   node_state(WAITING_FOR_HOME_POSE) {
 
+  slamSub_=nh_.subscribe("slam_out_pose",1, &geometricCtrl::slamCallback,this,ros::TransportHints().tcpNoDelay()); //slam pose
   referenceSub_=nh_.subscribe("reference/setpoint",1, &geometricCtrl::targetCallback,this,ros::TransportHints().tcpNoDelay());
   flatreferenceSub_ = nh_.subscribe("reference/flatsetpoint", 1, &geometricCtrl::flattargetCallback, this, ros::TransportHints().tcpNoDelay());
   yawreferenceSub_ = nh_.subscribe("reference/yaw", 1, &geometricCtrl::yawtargetCallback, this, ros::TransportHints().tcpNoDelay());
@@ -25,6 +26,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
   cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this); // Define timer for constant loop rate
   statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this); // Define timer for constant loop rate
 
+  vision_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("mavros/vision_pose/pose", 10); // vision_pub
   angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1);
   //angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1); same as the above
   referencePosePub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference/pose", 1);
@@ -70,6 +72,14 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
 }
 geometricCtrl::~geometricCtrl() {
   //Destructor
+}
+
+/// slam sub
+void geometricCtrl::slamCallback(const geometry_msgs::PoseStamped& msg) {
+
+  slam_pose(0) = msg.pose.position.x;
+  slam_pose(1) = msg.pose.position.y;
+
 }
 
 void geometricCtrl::targetCallback(const geometry_msgs::TwistStamped& msg) {
@@ -231,6 +241,18 @@ void geometricCtrl::statusloopCallback(const ros::TimerEvent& event){
     }
   }
   pubSystemStatus();
+}
+
+//////////////////// vision pub 
+void geometricCtrl::visionPose(){
+  geometry_msgs::PoseStamped msg;
+
+  msg.header.stamp = ros::Time::now();
+  msg.header.frame_id = "map";
+  msg.pose.position.x = slam_pose(0);
+  msg.pose.position.y = slam_pose(1);
+ // msg.pose.orientation.z = target_attitude(3);
+ // vision_pub_.publish(msg);
 }
 
 void geometricCtrl::pubReferencePose(const Eigen::Vector3d &target_position, const Eigen::Vector4d &target_attitude){
