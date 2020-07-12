@@ -18,10 +18,10 @@
           <param name="Kp_x" value="8.0" />
           <param name="Kp_y" value="8.0" />
           <param name="Kp_z" value="10.0" />
-	        <param name="Kv_x" value="1.5" /> <!-- used to be 1.5, original params -->
+	  <param name="Kv_x" value="1.5" /> <!-- used to be 1.5, original params -->
           <param name="Kv_y" value="1.5" />
           <param name="Kv_z" value="3.3" />
-	        <param name="yaw_heading" value="0.0" />	
+	  <param name="yaw_heading" value="0.0" />	
   </node>
 
   <node pkg="trajectory_publisher" type="trajectory_publisher" name="trajectory_publisher" output="screen">
@@ -29,6 +29,9 @@
         <param name="shape_omega" value="1.2" />
         <param name="initpos_z" value="2.0" />
         <param name="reference_type" value="2" />
+  </node>
+
+  <node pkg="geometric_controller" name="controller_test" type="controller_test" output="screen">
   </node>
 
   <node name="trajectory" pkg="controllers" type="trajectory" output="screen" args=""> <!-- newly added from andriy's publisher -->
