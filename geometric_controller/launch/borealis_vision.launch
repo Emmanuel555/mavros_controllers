@@ -42,6 +42,6 @@
   <!-- Launch rqt_reconfigure -->
   <node pkg="rqt_reconfigure" type="rqt_reconfigure" output="screen" name="rqt_reconfigure" />
 
-  <node pkg="rqt_multiplot" type="rqt_multiplot" output="screen" name="rqt_multiplot" />
+<!--  <node pkg="rqt_multiplot" type="rqt_multiplot" output="screen" name="rqt_multiplot" /> -->
 
 </launch>
