@@ -55,7 +55,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
   nh_private_.param<double>("Kv_z", Kvel_z_, 3.3);
   nh_private_.param<int>("posehistory_window", posehistory_window_, 200);
 
-  targetPos_ << 0.0, 0.0, 0.0; //Initial Position
+  targetPos_ << 0.0, 0.0, 2.0; //Initial Position
   targetVel_ << 0.0, 0.0, 0.0; //Initial Vel
   mavPos_ << 0.0, 0.0, 0.0;
   mavVel_ << 0.0, 0.0, 0.0;
