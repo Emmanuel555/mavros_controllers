@@ -80,6 +80,7 @@ class controller_test:
         self.traj_type = Int32()
         self.traj_pose = PoseStamped()
         self.traj_vel = TwistStamped()
+        self.pf_vel = TwistStamped()
         self.error = Float64()
         self.HDOP = 0.5
         self.X = Float64()

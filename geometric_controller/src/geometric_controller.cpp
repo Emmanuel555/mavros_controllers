@@ -25,7 +25,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
   cmdloop_timer_ = nh_.createTimer(ros::Duration(0.01), &geometricCtrl::cmdloopCallback, this); // Define timer for constant loop rate
   statusloop_timer_ = nh_.createTimer(ros::Duration(1), &geometricCtrl::statusloopCallback, this); // Define timer for constant loop rate
 
-  angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("command/bodyrate_command", 1); // remap thats why command/bodyrate is associated with attitude topic
+  angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/geo_command/bodyrate_command", 1); // remap thats why command/bodyrate is associated with attitude topic
   //angularVelPub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1); same as the above
   referencePosePub_ = nh_.advertise<geometry_msgs::PoseStamped>("reference/pose", 1);
   target_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
@@ -44,7 +44,7 @@ geometricCtrl::geometricCtrl(const ros::NodeHandle& nh, const ros::NodeHandle& n
   nh_private_.param<double>("drag_dx", dx_, 0.0);
   nh_private_.param<double>("drag_dy", dy_, 0.0);
   nh_private_.param<double>("drag_dz", dz_, 0.0);
-  nh_private_.param<double>("attctrl_constant", attctrl_tau_, 0.1);
+  nh_private_.param<double>("attctrl_constant", attctrl_tau_, 0.1); //need to test this ***
   nh_private_.param<double>("normalizedthrust_constant", norm_thrust_const_, 0.05); // 1 / max acceleration
   nh_private_.param<double>("normalizedthrust_offset", norm_thrust_offset_, 0.1); // 1 / max acceleration
   nh_private_.param<double>("Kp_x", Kpos_x_, 8.0);
