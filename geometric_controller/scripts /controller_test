@@ -256,6 +256,36 @@ class controller_test:
 
                 print "Resetting...", self.seq
 
+            if self.traj_type.data == 1: # hover
+                
+                self.seq = 0.0
+                self.seq_ref = 0.0
+                self.seq_ref_2 = 0.0
+                self.init_time = 0.0
+                self.first_time = 0.0
+                self.second_time = 0.0
+                self.final_destination = 1.0
+                self.seq_2 = self.final_destination
+                self.error = 0.0
+                self.error_2 = 0.0
+                self.target_vel = 1.0
+                self.error_1 = 0.0
+                self.error_2 = 0.0
+                self.error_3 = 0.0
+                self.error_4 = 0.0
+                self.error_5 = 0.0
+                self.error_6 = 0.0
+                self.error_7 = 0.0
+                self.error_8 = 0.0
+                self.error_9 = 0.0
+                self.error_10 = 0.0
+ 
+                print "Hovering...", self.seq
+
+            if self.traj_type.data == 2: # user, always go back to hover when u wanna go into another mode
+                
+                print "User..."  
+               
             if self.traj_type.data == 5: # circle
                 self.seq = self.seq + 0.02
                 self.shapes.data = "Circle"
